@@ -21,6 +21,67 @@ const CONFIG = {
   }
 };
 
+/* ---------- Firebase base URL (Realtime DB REST) ---------- */
+// Change path if you want (e.g. /cicd-scores)
+const FIREBASE_DB_URL = 'https://roadshowgame-default-rtdb.firebaseio.com';
+
+/* Save a score to Firebase (POST to /scores) */
+async function saveScoreToFirebase(name, score, timestamp) {
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/scores.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, score, timestamp })
+    });
+    const data = await res.json();  // { name: "-Nabcd..." }
+    console.log('Score saved to Firebase:', data);
+    return data && data.name; // key
+  } catch (err) {
+    console.error('Error saving score to Firebase:', err);
+    return null;
+  }
+}
+
+/* Read leaderboard scores from Firebase */
+async function fetchLeaderboardFromFirebase() {
+  try {
+    const res = await fetch(`${FIREBASE_DB_URL}/scores.json`);
+    const data = await res.json();
+    if (!data) return [];
+
+    // data = { key1: {name,score,timestamp}, key2: {...}, ...}
+    const rows = Object.entries(data).map(([id, entry]) => ({
+      id,
+      name: entry.name || 'Anon',
+      score: typeof entry.score === 'number'
+        ? entry.score
+        : parseInt(entry.score, 10) || 0,
+      timestamp: entry.timestamp || 0
+    }));
+
+    rows.sort((a, b) => b.score - a.score);
+    return rows.slice(0, 20);
+  } catch (err) {
+    console.error('Error loading leaderboard from Firebase:', err);
+    return [];
+  }
+}
+
+/* Render small leaderboard panel on main screen */
+async function renderLB() {
+  const a = await fetchLeaderboardFromFirebase();
+  const lbBox = document.getElementById('lb');
+  lbBox.innerHTML = a.length
+    ? a.map(r => `
+        <div style="display:flex;justify-content:space-between;padding:6px;border-bottom:1px solid rgba(255,255,255,0.04)">
+          <div>${r.name}</div>
+          <div style="opacity:.85">${r.score}</div>
+        </div>`).join('')
+    : '<div style="opacity:.75;padding:8px">No scores yet</div>';
+}
+// initial load
+renderLB();
+
 let state = {
   player: null,
   score: 0,
@@ -143,33 +204,6 @@ function beep(freq=440,dur=0.06){
   }catch(e){}
 }
 
-/* ---------- Leaderboard ---------- */
-function loadLB(){
-  return JSON.parse(localStorage.getItem('ci_lb')||'[]');
-}
-function saveLB(a){
-  localStorage.setItem('ci_lb', JSON.stringify(a));
-  renderLB();
-}
-function addScore(name, score, date){
-  const a = loadLB();
-  a.push({name, score, date});
-  a.sort((x,y)=>y.score-x.score);
-  if(a.length>20) a.length=20;
-  saveLB(a);
-  return a;
-}
-function renderLB(){
-  const a=loadLB();
-  lbBox.innerHTML = a.length
-    ? a.map(r=>`<div style="display:flex;justify-content:space-between;padding:6px;border-bottom:1px solid rgba(255,255,255,0.04)">
-                   <div>${r.name}</div>
-                   <div style="opacity:.85">${r.score}</div>
-                 </div>`).join('')
-    : '<div style="opacity:.75;padding:8px">No scores yet</div>';
-}
-renderLB();
-
 /* ---------- UI helpers ---------- */
 function updateHUD(){
   scoreEl.textContent = state.score;
@@ -263,9 +297,9 @@ btnTutorial.addEventListener('click', ()=>{
   `);
 });
 
-/* Fancy leaderboard modal */
-btnLB.addEventListener('click', ()=>{
-  const rows = loadLB();
+/* Fancy leaderboard modal – now from Firebase */
+btnLB.addEventListener('click', async ()=>{
+  const rows = await fetchLeaderboardFromFirebase();
   let body = '';
 
   if(!rows.length){
@@ -318,8 +352,13 @@ btnLB.addEventListener('click', ()=>{
   `);
 });
 
-clearLbBtn.addEventListener('click', ()=>{
-  localStorage.removeItem('ci_lb');
+/* Clear leaderboard – deletes /scores in Firebase */
+clearLbBtn.addEventListener('click', async ()=>{
+  try{
+    await fetch(`${FIREBASE_DB_URL}/scores.json`, { method:'DELETE' });
+  }catch(e){
+    console.error('Error clearing Firebase leaderboard', e);
+  }
   renderLB();
 });
 
@@ -723,7 +762,8 @@ function showEndOverlay(reason, rank){
   endOverlay.style.display = 'flex';
 }
 
-function endGame(reason){
+/* Now async because we talk to Firebase */
+async function endGame(reason){
   state.running = false;
   clearInterval(timerInterval);
   timerInterval = null;
@@ -736,11 +776,24 @@ function endGame(reason){
   }
 
   const stamp = Date.now();
-  const updated = addScore(state.player, state.score, stamp);
-  const idx = updated.findIndex(r=>r.name===state.player && r.score===state.score && r.date===stamp);
-  const rank = idx >= 0 ? idx+1 : null;
+  let rank = null;
+
+  try{
+    await saveScoreToFirebase(state.player, state.score, stamp);
+    const rows = await fetchLeaderboardFromFirebase();
+
+    const idx = rows.findIndex(
+      r => r.name === state.player &&
+           r.score === state.score &&
+           r.timestamp === stamp
+    );
+    rank = idx >= 0 ? idx+1 : null;
+  }catch(e){
+    console.error('Error updating Firebase leaderboard', e);
+  }
 
   showEndOverlay(reason, rank);
+  renderLB();
 }
 
 function beginGame(){
