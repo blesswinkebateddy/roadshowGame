@@ -867,3 +867,21 @@ btnStart.addEventListener('click', ()=>{
     beginGame();
   }
 });
+
+
+function abortGame() {
+  if (!state.running) return;
+
+  state.running = false;
+  clearInterval(timerInterval);
+  timerInterval = null;
+
+  endTitleEl.textContent = "⛔ Game Aborted";
+  endTitleEl.className = "end-title aborted";
+
+  endScoreEl.textContent = "Score: " + state.score;
+  endRankEl.textContent = "(Not saved to leaderboard)";
+  endOverlay.style.display = "flex";
+
+  btnAbort.disabled = true;
+}
