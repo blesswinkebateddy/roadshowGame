@@ -790,27 +790,3 @@ button:active{
     0 0 12px rgba(36, 211, 255, 0.55),
     inset 0 0 0 1px rgba(0,0,0,0.4);
 }
-
-.lb-score-main {
-  font-weight: 600;
-}
-
-.lb-score-when {
-  font-size: 11px;
-  opacity: 0.6;
-  margin-top: 2px;
-}
-
-/* Row that matches a score saved locally (same Firebase id) */
-.lb-row.my-global {
-  background: linear-gradient(90deg, rgba(36,211,255,0.12), rgba(0,0,0,0));
-}
-
-.lb-row.my-global .lb-score-main {
-  color: #24d3ff;
-}
-
-.lb-row.my-global .lb-medal {
-  color: #24d3ff;
-}
-
