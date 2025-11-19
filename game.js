@@ -300,22 +300,22 @@ btnTutorial.addEventListener('click', ()=>{
 /* Fancy leaderboard modal – now from Firebase */
 btnLB.addEventListener('click', async () => {
 
-  // load data
+  // Always load fresh data
   const globalRows = await fetchLeaderboardFromFirebase();
   const localRows = loadLocalScores();
 
-  // Set default mode
+  // Default tab
   if (!window._lbMode) window._lbMode = "global";
 
-  // Renders only one table (global or local)
+  // RENDER A TABLE
   function renderTable(mode) {
     const rows = mode === "global" ? globalRows : localRows;
-    const isGlobal = mode === "global";
+    const isGlobal = (mode === "global");
 
     if (!rows.length) {
       return `
-        <p style="opacity:.7;margin-top:10px">
-          ${isGlobal ? "No global scores yet." : "No personal scores stored on this device."}
+        <p style="opacity:.7;margin-top:12px">
+          ${isGlobal ? "No global scores yet." : "No personal scores found on this device."}
         </p>`;
     }
 
@@ -329,7 +329,7 @@ btnLB.addEventListener('click', async () => {
           </tr>
         </thead>
         <tbody>
-          ${rows.map((r, i) => `
+          ${rows.map((r,i)=>`
             <tr class="lb-row">
               <td>${i+1}</td>
               <td>${r.name}</td>
@@ -341,39 +341,41 @@ btnLB.addEventListener('click', async () => {
     `;
   }
 
-  // MAIN UI render — both tabs + table
-  function buildLeaderboard() {
+  // RENDER WHOLE MODAL (HEADER + TABS + TABLE)
+  window._renderLBFull = function() {
+    const mode = window._lbMode;
+
     return `
       <h2>🏆 Leaderboard</h2>
 
-      <div style="display:flex;gap:10px;margin-bottom:14px">
+      <div style="display:flex;gap:12px;margin-bottom:14px">
+
         <button class="btn-secondary"
-                style="border:${window._lbMode==='global'?'2px solid #6ef6ff':''}"
-                onclick="window._lbMode='global'; document.getElementById('lbContent').innerHTML = window._renderLBBody()">
+          style="border:${mode==='global'?'2px solid #6ef6ff':'1px solid rgba(255,255,255,0.2)'}"
+          onclick="window._lbMode='global'; document.getElementById('modalContent').innerHTML = window._renderLBFull()">
           🌐 Global
         </button>
 
         <button class="btn-secondary"
-                style="border:${window._lbMode==='local'?'2px solid #6ef6ff':''}"
-                onclick="window._lbMode='local'; document.getElementById('lbContent').innerHTML = window._renderLBBody()">
+          style="border:${mode==='local'?'2px solid #6ef6ff':'1px solid rgba(255,255,255,0.2)'}"
+          onclick="window._lbMode='local'; document.getElementById('modalContent').innerHTML = window._renderLBFull()">
           💾 My Scores
         </button>
+
       </div>
 
       <div id="lbContent">
-        ${renderTable(window._lbMode)}
+        ${renderTable(mode)}
       </div>
 
       <div style="text-align:right;margin-top:16px">
         <button onclick="hideModal()">Close</button>
       </div>
     `;
-  }
+  };
 
-  // Expose only the table refresh — tabs call this
-  window._renderLBBody = () => renderTable(window._lbMode);
-
-  showModal(buildLeaderboard());
+  // Show modal the FIRST time
+  showModal(window._renderLBFull());
 });
 
 
@@ -927,6 +929,7 @@ function saveLocalScore(name, score, timestamp){
 function loadLocalScores(){
   return JSON.parse(localStorage.getItem("localScores") || "[]");
 }
+
 
 
 
