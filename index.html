@@ -1,156 +1,167 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CI/CD Defense Arcade</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8" />
+  <title>Defense Arcade – Bug Gate Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Your main CSS -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Game JS -->
+  <script defer src="game.js"></script>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>
-      <span class="title-main">CI/CD</span>
-      <span class="title-sub">Defense Arcade</span>
-    </h1>
-    <div class="controls">
-      <div class="pill pill-player">
-        <span class="pill-label">Player</span>
-        <span id="playerName" class="pill-value">—</span>
+  <div class="wrap">
+    <!-- Top bar -->
+    <header class="top-bar">
+      <div class="top-left">
+        <div class="game-title">Defense Arcade</div>
+        <div class="sub-title">Catch bugs before they hit PROD 🐞🔥</div>
       </div>
-      <div class="pill pill-score">
-        <span class="pill-label">Score</span>
-        <span id="score" class="pill-value">0</span>
-      </div>
-      <div class="pill pill-combo">
-        <span class="pill-label">Combo</span>
-        <span id="combo" class="pill-value">0</span>
-      </div>
-      <button id="btnStart" class="btn-primary">▶ Start</button>
-      <button id="btnAbort" disabled>Abort</button>
-      <button id="btnLB" class="btn-secondary">🏆 Leaderboard</button>
-      <button id="btnTutorial" class="btn-secondary">❓ Tutorial</button>
-    </div>
-  </header>
-
-  <div class="main">
-    <div class="hud">
-      <div class="hud-chip">
-        <span class="hud-label">Mode</span>
-        <span class="hud-value">Classic (single)</span>
-      </div>
-      <div class="hud-chip">
-        <span class="hud-label">Upcoming</span>
-        <span class="hud-value" id="upcoming">—</span>
-      </div>
-      <div class="hud-chip">
-        <span class="hud-label">Remaining</span>
-        <span class="hud-value" id="remaining">—</span>
-      </div>
-      <div class="hud-chip">
-        <span class="hud-label">Speed</span>
-        <span class="hud-value" id="speedLbl">1.00x</span>
-      </div>
-      <div class="hud-chip hud-chip-timer">
-        <span class="hud-label">Time</span>
-        <span class="hud-value" id="timer">90</span><span class="hud-unit">s</span>
-      </div>
-    </div>
-
-    <div class="game-area" id="gameArea">
-      <div class="grid"></div>
-      <div class="wave-banner" id="banner">Ready</div>
-      <div class="lanes" id="lanes"></div>
-
-      <div class="prod-column healthy" id="prodCol">
-        <div class="prod-crack" id="prodCrack"></div>
-        <div class="prod-icon">⚙️</div>
-        <div class="prod-label">PROD</div>
-        <div class="health" title="Production Stability">
-          <div id="healthInner" class="health-inner"></div>
+      <div class="top-right">
+        <div class="top-row">
+          <span class="label">Player:</span>
+          <span id="playerName" class="pill pill-name">—</span>
+        </div>
+        <div class="top-row">
+          <span class="label">Time:</span>
+          <span id="timer" class="pill pill-timer">90</span>
+        </div>
+        <div class="top-buttons">
+          <button id="btnTutorial" class="btn-ghost">How to Play</button>
+          <button id="btnLB" class="btn-ghost">Leaderboard</button>
+          <button id="btnStart" class="btn-primary">Start Game</button>
+          <button id="btnAbort" class="btn-danger" disabled>Abort</button>
         </div>
       </div>
+    </header>
 
-      <!-- End-of-game overlay -->
-      <div id="endOverlay" class="end-overlay" style="display:none">
-        <div class="end-card">
-          <div id="endTitle" class="end-title">Time Up!</div>
-          <div id="endScore" class="end-score">Score: 0</div>
-          <div id="endRank" class="end-rank"></div>
-          <div class="end-actions">
-            <button id="endBtnPlay">Play Again</button>
-            <button id="endBtnLB">View Leaderboard</button>
-            <button id="endBtnNew">New Game</button>
+    <!-- Main layout -->
+    <main class="main-layout">
+      <!-- Left panel: stats + mini leaderboard + gates -->
+      <section class="left-panel">
+        <div class="panel panel-status">
+          <div id="banner" class="banner">Ready</div>
+
+          <div class="stats-grid">
+            <div class="stat">
+              <div class="stat-label">Score</div>
+              <div id="score" class="stat-value">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Combo</div>
+              <div id="combo" class="stat-value">0</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Bugs Left</div>
+              <div id="remaining" class="stat-value">75</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Speed</div>
+              <div id="speedLbl" class="stat-value">1.00x</div>
+            </div>
+          </div>
+
+          <div class="health-bar">
+            <div class="health-label">Production Health</div>
+            <div class="health-outer">
+              <div id="healthInner" class="health-inner"></div>
+            </div>
+          </div>
+
+          <div class="upcoming">
+            <div class="upcoming-label">Incoming bug</div>
+            <div id="upcoming" class="upcoming-value">—</div>
           </div>
         </div>
-      </div>
 
-      <!-- Start-of-game overlay (kids game effect + name input) -->
-      <div id="startOverlay" class="end-overlay" style="display:flex">
-        <div class="end-card">
-          <div id="startTitle" class="end-title timeup">
-            CI/CD Defense Arcade
+        <!-- Gates -->
+        <div class="panel panel-gates">
+          <div class="panel-heading">Drag a Gate</div>
+          <div class="gate-row">
+            <button class="gate-btn gate-unit" draggable="true" data-type="unit">UNIT</button>
+            <button class="gate-btn gate-contract" draggable="true" data-type="contract">CONTRACT</button>
+            <button class="gate-btn gate-integration" draggable="true" data-type="integration">INTEGRATION</button>
           </div>
-          <div id="startSubtitle" class="end-score">
-            Defend PROD from sneaky CI/CD bugs!
-          </div>
+          <div class="hint">Drag & drop onto a lane to block the bug.</div>
+        </div>
 
-          <input id="playerNameInput"
-                 type="text"
-                 class="name-input"
-                 placeholder="Type your hero name here" />
-
-          <div class="end-rank">
-            Drag UNIT / CONTRACT / INTEGRATION gates onto builds to stop bugs early.
-          </div>
-          <div class="end-actions">
-            <button id="startOverlayBtn" disabled>Start Game ▶</button>
+        <!-- Mini leaderboard -->
+        <div class="panel panel-leaderboard">
+          <div class="panel-heading">Top Scores</div>
+          <div id="lb" class="lb-mini">
+            <!-- filled by JS -->
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Gate bar -->
-    <div class="gate-bar" id="gateBar">
-      <div class="gate-btn blue" draggable="true" data-type="unit">UNIT TEST</div>
-      <div class="gate-btn green" draggable="true" data-type="contract">CONTRACT TEST</div>
-      <div class="gate-btn orange" draggable="true" data-type="integration">INTEGRATION</div>
-    </div>
-
-    <!-- Hidden leaderboard & controls (used only by JS) -->
-    <div style="display:flex;gap:12px;align-items:flex-start">
-      <div id="lbPanel" style="flex:1;display:none">
-        <div class="muted">Leaderboard</div>
-        <div class="lb" id="lb"></div>
-      </div>
-
-      <div id="controlsPanel"
-           style="width:260px;margin-left:auto;display:none">
-        <div class="muted">Controls</div>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-          <button id="spawnBtn">Spawn Next Bug</button>
-          <button id="resetBtn">Reset Session</button>
-          <button id="clearLb">Clear Scores</button>
+        <!-- Dev / admin controls (optional, can hide via CSS) -->
+        <div class="panel panel-dev">
+          <div class="panel-heading">Admin / Debug</div>
+          <div class="dev-buttons">
+            <button id="spawnBtn" class="btn-tiny">Spawn Bug</button>
+            <button id="resetBtn" class="btn-tiny">Reset Session</button>
+            <button id="clearLb" class="btn-tiny">Clear Firebase LB</button>
+          </div>
         </div>
+      </section>
+
+      <!-- Game area -->
+      <section id="gameArea" class="game-area">
+        <div id="lanes" class="lanes">
+          <!-- JS builds lanes -->
+        </div>
+        <div id="prodCol" class="prod-col healthy">
+          <div class="prod-label">PROD</div>
+          <div class="prod-sub">Don’t let bugs in!</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Start overlay -->
+  <div id="startOverlay" class="overlay overlay-start">
+    <div class="overlay-card">
+      <h2>Start a New Game</h2>
+      <p class="overlay-text">
+        Enter your name to join the leaderboard and catch some bugs!
+      </p>
+      <label for="playerNameInput" class="field-label">Player name</label>
+      <input id="playerNameInput"
+             class="field-input"
+             type="text"
+             maxlength="24"
+             placeholder="e.g. Ramya, QA Ninja, Bug Slayer" />
+
+      <div class="start-actions">
+        <button id="startOverlayBtn" class="btn-primary" disabled>Start Game</button>
+        <button id="startOverlayLBBtn" class="btn-ghost">View Leaderboard</button>
       </div>
     </div>
   </div>
 
-  <footer class="footer-tip">
-    💡 Tip:
-    Drag a gate up from the bottom bar and drop it onto a lane.
-    Correct gate blocks the bug for <b>+50 to +250 points</b> (earlier in the pipeline = more points).
-    Wrong gate pauses the bug 0.5s and costs −100.
-    Bug reaching PROD costs −500 and damages production. 5 hits = full PROD meltdown.
-  </footer>
-</div>
+  <!-- End overlay -->
+  <div id="endOverlay" class="overlay overlay-end" style="display:none;">
+    <div class="overlay-card">
+      <h2 id="endTitle" class="end-title">Game Over</h2>
+      <p id="endScore" class="end-score">Score: 0</p>
+      <p id="endRank" class="end-rank"></p>
+      <div class="end-actions">
+        <button id="endBtnPlay" class="btn-primary">Play Again</button>
+        <button id="endBtnLB" class="btn-ghost">View Leaderboard</button>
+        <button id="endBtnNew" class="btn-ghost">Change Player</button>
+      </div>
+    </div>
+  </div>
 
-<!-- Modal (for tutorial + leaderboard) -->
-<div id="modal" class="modal-root" style="display:none">
-  <div class="modal-content" id="modalContent"></div>
-</div>
-
-<script src="game.js"></script>
+  <!-- Generic modal (tutorial + leaderboard) -->
+  <div id="modal" class="modal" style="display:none;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-window">
+      <div id="modalContent" class="modal-content">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
 </body>
 </html>
-
