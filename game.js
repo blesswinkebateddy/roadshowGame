@@ -299,7 +299,9 @@ btnTutorial.addEventListener('click', ()=>{
 
 /* Fancy leaderboard modal – now from Firebase */
 btnLB.addEventListener('click', async ()=>{
-  const mode = window._lbMode || 'global';
+    window._lbMode = window._lbMode || 'global';  // <-- NEW FIX LINE
+
+  const mode = window._lbMode;
   const globalRows = await fetchLeaderboardFromFirebase();
   const localRows  = loadLocalScores();
 
@@ -903,3 +905,4 @@ function saveLocalScore(name, score, timestamp){
 function loadLocalScores(){
   return JSON.parse(localStorage.getItem("localScores") || "[]");
 }
+
