@@ -36,20 +36,18 @@ function loadLocalScores() {
   }
 }
 
-/**
- * firebaseId is optional; when present it lets us highlight the same row
- * in the global leaderboard.
- */
-function addLocalScore(name, score, timestamp, firebaseId = null) {
+function addLocalScore(name, score, timestamp) {
   if (!name) return;
   const all = loadLocalScores();
-  all.push({ name, score, timestamp, firebaseId });
+  all.push({ name, score, timestamp });
 
+  // sort best first, then oldest first for same score
   all.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
     return a.timestamp - b.timestamp;
   });
 
+  // keep last 50 to avoid unbounded growth
   const trimmed = all.slice(0, 50);
   try {
     localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(trimmed));
@@ -66,9 +64,9 @@ async function saveScoreToFirebase(name, score, timestamp) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, score, timestamp })
     });
-    const data = await res.json(); // { name: "-Nabcd..." }
+    const data = await res.json();
     console.log('Score saved to Firebase:', data);
-    return data && data.name; // firebase-generated key
+    return data && data.name;
   } catch (err) {
     console.error('Error saving score to Firebase:', err);
     return null;
@@ -82,7 +80,6 @@ async function fetchLeaderboardFromFirebase() {
     const data = await res.json();
     if (!data) return [];
 
-    // data = { key1: {name,score,timestamp}, key2: {...}, ...}
     const rows = Object.entries(data).map(([id, entry]) => ({
       id,
       name: entry.name || 'Anon',
@@ -105,7 +102,6 @@ async function fetchLeaderboardFromFirebase() {
 async function renderLB() {
   const a = await fetchLeaderboardFromFirebase();
   const lbBox = document.getElementById('lb');
-  if (!lbBox) return;
   lbBox.innerHTML = a.length
     ? a
         .map(
@@ -118,8 +114,8 @@ async function renderLB() {
         .join('')
     : '<div style="opacity:.75;padding:8px">No scores yet</div>';
 }
+renderLB();
 
-/* ---------- State ---------- */
 let state = {
   player: null,
   score: 0,
@@ -163,12 +159,10 @@ const endBtnNew = document.getElementById('endBtnNew');
 
 const startOverlay = document.getElementById('startOverlay');
 const startOverlayBtn = document.getElementById('startOverlayBtn');
-const startOverlayLBBtn = document.getElementById('startOverlayLBBtn');
 const playerNameInput = document.getElementById('playerNameInput');
 
 /* ---------- Build lanes ---------- */
 function buildLanes() {
-  if (!lanesEl) return;
   lanesEl.innerHTML = '';
   for (let i = 0; i < CONFIG.lanes; i++) {
     const lane = document.createElement('div');
@@ -180,10 +174,7 @@ function buildLanes() {
     label.textContent = `Build ${i + 1}`;
     lane.appendChild(label);
 
-    const lineLeft = document.createElement('div');
-    lineLeft.className = 'line-left';
-    lane.appendChild(lineLeft);
-
+    lane.innerHTML += `<div class='line-left'></div>`;
     lanesEl.appendChild(lane);
   }
 }
@@ -312,7 +303,6 @@ function beep(freq = 440, dur = 0.06) {
 
 /* ---------- UI helpers ---------- */
 function updateHUD() {
-  if (!scoreEl) return;
   scoreEl.textContent = state.score;
   comboEl.textContent = state.combo;
   remainingEl.textContent = state.remaining;
@@ -322,7 +312,6 @@ function updateHUD() {
 }
 
 function updateHealth() {
-  if (!healthInner) return;
   const pct = Math.max(0, Math.floor((state.health / CONFIG.prodMax) * 100));
   healthInner.style.width = pct + '%';
   if (pct < 30)
@@ -334,7 +323,6 @@ function updateHealth() {
 }
 
 function updateProdDamageVisual() {
-  if (!prodCol) return;
   prodCol.classList.remove('healthy', 'damaged', 'critical', 'broken');
   if (state.health <= 0) {
     prodCol.classList.add('broken', 'critical', 'damaged');
@@ -349,7 +337,6 @@ function updateProdDamageVisual() {
 
 /* banner with optional revert */
 function flashBanner(text, ms = 900, revert = true) {
-  if (!banner) return;
   const old = banner.textContent;
   banner.textContent = text;
   banner.style.animation = 'pop 0.4s ease-out';
@@ -368,7 +355,6 @@ function flashBanner(text, ms = 900, revert = true) {
 
 /* Floating score text */
 function showFloatingText(text, x, y, color) {
-  if (!gameArea) return;
   const node = document.createElement('div');
   node.textContent = text;
   node.style.position = 'absolute';
@@ -377,7 +363,7 @@ function showFloatingText(text, x, y, color) {
   node.style.color = color || '#fff';
   node.style.fontWeight = '700';
   node.style.fontSize = '16px';
-  node.style.textShadow = '0 0 8px rgba(0, 0, 0, 0.7)';
+  node.style.textShadow = '0 0 8px rgba(0,0,0,0.7)';
   node.style.pointerEvents = 'none';
   node.style.zIndex = 80;
   gameArea.appendChild(node);
@@ -398,16 +384,11 @@ function showFloatingText(text, x, y, color) {
 
 /* ---------- Modal ---------- */
 function showModal(html) {
-  const modal = document.getElementById('modal');
-  const content = document.getElementById('modalContent');
-  if (!modal || !content) return;
-  content.innerHTML = html;
-  modal.style.display = 'flex';
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modal').style.display = 'flex';
 }
 function hideModal() {
-  const modal = document.getElementById('modal');
-  if (!modal) return;
-  modal.style.display = 'none';
+  document.getElementById('modal').style.display = 'none';
 }
 
 /* Simple tab switcher for leaderboard modal */
@@ -431,42 +412,32 @@ window._showLbTab = function (which) {
   }
 };
 
-/* ---------- Tutorial & fixed buttons ---------- */
-if (btnTutorial) {
-  btnTutorial.addEventListener('click', () => {
-    showModal(`
-      <h2>How to Play</h2>
-      <p>🐞 One bug at a time spawns on a random build lane. Drag a gate (UNIT / CONTRACT / INTEGRATION) and drop it onto a lane. The gate will snap and block the approaching bug.</p>
-      <ul>
-        <li><b>Correct gate</b> (matches bug type): +${CONFIG.scoring.correctMin} to +${CONFIG.scoring.correctMax} (earlier is better)</li>
-        <li><b>Wrong gate</b>: ${CONFIG.scoring.wrongGate}, bug pauses ${CONFIG.wrongPauseMs}ms</li>
-        <li><b>Bug hits PROD</b>: ${CONFIG.scoring.hitProd} and production health drops by 20% (5 hits = meltdown)</li>
-        <li>Every ${CONFIG.scoring.comboSize} correct in a row gives a combo bonus of +${CONFIG.scoring.comboBonus}</li>
-      </ul>
-      <div style="text-align:right;margin-top:10px">
-        <button onclick="hideModal()">Got it!</button>
-      </div>
-    `);
-  });
-}
+/* ---------- Tutorial & Buttons ---------- */
+btnTutorial.addEventListener('click', () => {
+  showModal(`
+    <h2>How to Play</h2>
+    <p>🐞 One bug at a time spawns on a random build lane. Drag a gate (UNIT / CONTRACT / INTEGRATION) and drop it onto a lane. The gate will snap and block the approaching bug.</p>
+    <ul>
+      <li><b>Correct gate</b> (matches bug type): +${CONFIG.scoring.correctMin} to +${CONFIG.scoring.correctMax} (earlier is better)</li>
+      <li><b>Wrong gate</b>: ${CONFIG.scoring.wrongGate}, bug pauses ${
+    CONFIG.wrongPauseMs
+  }ms</li>
+      <li><b>Bug hits PROD</b>: ${CONFIG.scoring.hitProd} and production health drops by 20% (5 hits = meltdown)</li>
+      <li>Every ${CONFIG.scoring.comboSize} correct in a row gives a combo bonus of +${
+    CONFIG.scoring.comboBonus
+  }</li>
+    </ul>
+    <div style="text-align:right;margin-top:10px">
+      <button onclick="hideModal()">Got it!</button>
+    </div>
+  `);
+});
 
-/* ---------- Leaderboard modal (Global + My Scores) ---------- */
-if (btnLB) {
-  btnLB.addEventListener('click', onLeaderboardClick);
-}
-
-async function onLeaderboardClick() {
+btnLB.addEventListener('click', async () => {
   const globalRows = await fetchLeaderboardFromFirebase();
-  const localRows = loadLocalScores();
+  const localRows  = loadLocalScores();   // ⬅ all local scores on this device
 
-  // Set of Firebase ids we have stored locally
-  const localIds = new Set(
-    localRows
-      .map((r) => r.firebaseId)
-      .filter((id) => !!id)
-  );
-
-  /* ---------- Global scores ---------- */
+  /* ---------- Global scores table ---------- */
   let globalBody = '';
   if (!globalRows.length) {
     globalBody =
@@ -489,20 +460,8 @@ async function onLeaderboardClick() {
               else if (idx === 1) medal = '🥈';
               else if (idx === 2) medal = '🥉';
 
-              const d = new Date(r.timestamp || 0);
-              const when = isNaN(d.getTime())
-                ? ''
-                : d.toLocaleString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  });
-
-              const isMe = state.player && r.name === state.player;
-              const isLocal = localIds.has(r.id);
-
-              const meClass = isMe ? ' me' : '';
+              const meClass =
+                state.player && r.name === state.player ? ' me' : '';
               const topClass =
                 idx === 0
                   ? ' top1'
@@ -511,16 +470,11 @@ async function onLeaderboardClick() {
                   : idx === 2
                   ? ' top3'
                   : '';
-              const myGlobalClass = isLocal ? ' my-global' : '';
-
               return `
-                <tr class="lb-row${meClass}${topClass}${myGlobalClass}">
+                <tr class="lb-row${meClass}${topClass}">
                   <td class="lb-medal">${medal || idx + 1}</td>
                   <td>${r.name}</td>
-                  <td style="text-align:right">
-                    <div class="lb-score-main">${r.score}</div>
-                    <div class="lb-score-when">${when}</div>
-                  </td>
+                  <td style="text-align:right">${r.score}</td>
                 </tr>
               `;
             })
@@ -530,7 +484,7 @@ async function onLeaderboardClick() {
     `;
   }
 
-  /* ---------- My Scores (local) ---------- */
+  /* ---------- My Scores (local device) ---------- */
   let myBody = '';
   if (!localRows.length) {
     myBody =
@@ -543,12 +497,13 @@ async function onLeaderboardClick() {
             <th style="width:36px">#</th>
             <th>Player</th>
             <th style="text-align:right">Score</th>
+            <th style="text-align:right">When</th>
           </tr>
         </thead>
         <tbody>
           ${localRows
             .map((r, idx) => {
-              const d = new Date(r.timestamp || 0);
+              const d = new Date(r.timestamp);
               const when = isNaN(d.getTime())
                 ? ''
                 : d.toLocaleString(undefined, {
@@ -565,10 +520,8 @@ async function onLeaderboardClick() {
                 <tr class="lb-row${meClass}">
                   <td class="lb-medal">${idx + 1}</td>
                   <td>${r.name || 'Anon'}</td>
-                  <td style="text-align:right">
-                    <div class="lb-score-main">${r.score}</div>
-                    <div class="lb-score-when">${when}</div>
-                  </td>
+                  <td style="text-align:right">${r.score}</td>
+                  <td style="text-align:right;opacity:.85">${when}</td>
                 </tr>
               `;
             })
@@ -580,7 +533,8 @@ async function onLeaderboardClick() {
 
   const playerLine = state.player
     ? `<p style="margin-top:10px;font-size:13px;opacity:0.85">
-         You are playing as <b>${state.player}</b>. “My Scores” shows all scores stored on this device.
+         You are playing as <b>${state.player}</b>. 
+         “My Scores” shows all scores stored on this device.
        </p>`
     : `<p style="margin-top:10px;font-size:13px;opacity:0.85">
          “My Scores” shows all scores stored on this device.
@@ -613,103 +567,26 @@ async function onLeaderboardClick() {
       <button onclick="hideModal()">Close</button>
     </div>
   `);
-}
+});
 
 /* Clear leaderboard – deletes /scores in Firebase (not local) */
-if (clearLbBtn) {
-  clearLbBtn.addEventListener('click', async () => {
-    try {
-      await fetch(`${FIREBASE_DB_URL}/scores.json`, { method: 'DELETE' });
-    } catch (e) {
-      console.error('Error clearing Firebase leaderboard', e);
-    }
-    renderLB();
-  });
-}
+clearLbBtn.addEventListener('click', async () => {
+  try {
+    await fetch(`${FIREBASE_DB_URL}/scores.json`, { method: 'DELETE' });
+  } catch (e) {
+    console.error('Error clearing Firebase leaderboard', e);
+  }
+  renderLB();
+});
 
-if (resetBtn) resetBtn.addEventListener('click', resetSession);
-if (spawnBtn) spawnBtn.addEventListener('click', () => spawnNextBug(true));
+resetBtn.addEventListener('click', resetSession);
+spawnBtn.addEventListener('click', () => spawnNextBug(true));
 
 /* ---------- Name input behaviour ---------- */
-if (playerNameInput && startOverlayBtn) {
-  playerNameInput.addEventListener('input', () => {
-    const val = playerNameInput.value.trim();
-    startOverlayBtn.disabled = !val;
-  });
-}
-
-/* ---------- Start overlay buttons ---------- */
-if (startOverlayBtn) {
-  startOverlayBtn.addEventListener('click', () => {
-    const name = playerNameInput.value.trim();
-    if (!name) return;
-    state.player = name;
-    if (playerNameEl) playerNameEl.textContent = state.player;
-    if (startOverlay) startOverlay.style.display = 'none';
-    beginGame();
-  });
-}
-
-if (startOverlayLBBtn) {
-  startOverlayLBBtn.addEventListener('click', () => {
-    if (btnLB) btnLB.click();
-  });
-}
-
-/* header Start button */
-if (btnStart) {
-  btnStart.addEventListener('click', () => {
-    if (!state.player) {
-      if (startOverlay) startOverlay.style.display = 'flex';
-      if (playerNameInput) playerNameInput.focus();
-    } else if (!state.running) {
-      beginGame();
-    }
-  });
-}
-
-/* Abort button */
-if (btnAbort) {
-  btnAbort.addEventListener('click', abortGame);
-}
-
-/* buttons in end overlay */
-if (endBtnPlay) {
-  endBtnPlay.addEventListener('click', () => {
-    if (state.player) {
-      beginGame();
-    } else if (startOverlay) {
-      startOverlay.style.display = 'flex';
-    }
-  });
-}
-
-if (endBtnLB) {
-  endBtnLB.addEventListener('click', () => {
-    if (endOverlay) endOverlay.style.display = 'none';
-    if (btnLB) btnLB.click();
-  });
-}
-
-if (endBtnNew) {
-  endBtnNew.addEventListener('click', () => {
-    if (endOverlay) endOverlay.style.display = 'none';
-    resetSession();
-
-    state.player = null;
-    if (playerNameEl) playerNameEl.textContent = '—';
-
-    if (playerNameInput) {
-      playerNameInput.value = '';
-      if (startOverlayBtn) startOverlayBtn.disabled = true;
-    }
-
-    if (startOverlay) {
-      startOverlay.style.display = 'flex';
-      if (playerNameInput) playerNameInput.focus();
-    }
-  });
-}
+playerNameInput.addEventListener('input', () => {
+  const val = playerNameInput.value.trim();
+  startOverlayBtn.disabled = !val;
+});
 
 /* ---------- Drag & Drop (lanes) ---------- */
 let drag = null;
@@ -727,47 +604,43 @@ document.querySelectorAll('.gate-btn').forEach((g) => {
   });
 });
 
-if (gameArea) {
-  gameArea.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    if (!lanesEl) return;
-    const lanesRect = lanesEl.getBoundingClientRect();
-    const y = e.clientY - lanesRect.top + lanesEl.scrollTop;
-    const laneHeight = lanesRect.height / CONFIG.lanes;
-    const idx = Math.max(
-      0,
-      Math.min(CONFIG.lanes - 1, Math.floor(y / laneHeight))
-    );
-    document
-      .querySelectorAll('.lane')
-      .forEach((el, i) => el.classList.toggle('lane-hover', i === idx));
-  });
+gameArea.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  const lanesRect = lanesEl.getBoundingClientRect();
+  const y = e.clientY - lanesRect.top + lanesEl.scrollTop;
+  const laneHeight = lanesRect.height / CONFIG.lanes;
+  const idx = Math.max(
+    0,
+    Math.min(CONFIG.lanes - 1, Math.floor(y / laneHeight))
+  );
+  document
+    .querySelectorAll('.lane')
+    .forEach((el, i) => el.classList.toggle('lane-hover', i === idx));
+});
 
-  gameArea.addEventListener('drop', (e) => {
-    e.preventDefault();
-    document
-      .querySelectorAll('.lane')
-      .forEach((el) => el.classList.remove('lane-hover'));
-    if (!drag || !state.running || !state.currentBug) {
-      drag = null;
-      return;
-    }
-    if (!lanesEl) return;
-    const lanesRect = lanesEl.getBoundingClientRect();
-    const y = e.clientY - lanesRect.top + lanesEl.scrollTop;
-    const laneHeight = lanesRect.height / CONFIG.lanes;
-    const chosen = Math.max(
-      0,
-      Math.min(CONFIG.lanes - 1, Math.floor(y / laneHeight))
-    );
-    placeGate(drag.type, chosen, e.clientX);
+gameArea.addEventListener('drop', (e) => {
+  e.preventDefault();
+  document
+    .querySelectorAll('.lane')
+    .forEach((el) => el.classList.remove('lane-hover'));
+  if (!drag || !state.running || !state.currentBug) {
     drag = null;
-  });
-}
+    return;
+  }
+  const lanesRect = lanesEl.getBoundingClientRect();
+  const y = e.clientY - lanesRect.top + lanesEl.scrollTop;
+  const laneHeight = lanesRect.height / CONFIG.lanes;
+  const chosen = Math.max(
+    0,
+    Math.min(CONFIG.lanes - 1, Math.floor(y / laneHeight))
+  );
+  placeGate(drag.type, chosen, e.clientX);
+  drag = null;
+});
 
 /* ---------- Gate placement ---------- */
 function placeGate(type, laneIndex, clientX) {
-  if (!state.currentBug || !gameArea || !lanesEl) return;
+  if (!state.currentBug) return;
 
   const areaRect = gameArea.getBoundingClientRect();
   const laneEl = lanesEl.children[laneIndex];
@@ -810,11 +683,7 @@ function placeGate(type, laneIndex, clientX) {
   });
 
   node.animate(
-    [
-      { transform: 'scale(.86)' },
-      { transform: 'scale(1.02)' },
-      { transform: 'scale(1)' }
-    ],
+    [{ transform: 'scale(.86)' }, { transform: 'scale(1.02)' }, { transform: 'scale(1)' }],
     { duration: 220 }
   );
   beep(520, 0.06);
@@ -822,7 +691,7 @@ function placeGate(type, laneIndex, clientX) {
 
 /* ---------- Bug spawn / movement ---------- */
 function spawnNextBug(manual = false) {
-  if (!state.running || !gameArea || !lanesEl || !prodCol) return;
+  if (!state.running) return;
   if (state.currentBug) return;
   if (state.remaining <= 0) {
     if (manual) flashBanner('No bugs remaining');
@@ -883,7 +752,6 @@ function spawnNextBug(manual = false) {
 
 /* Dynamic score based on gate position */
 function computeDynamicScore(gateCenter, bug) {
-  if (!gameArea || !prodCol) return CONFIG.scoring.correctMin;
   const areaRect = gameArea.getBoundingClientRect();
   const prodRect = prodCol.getBoundingClientRect();
 
@@ -934,9 +802,7 @@ function handleGateHit(bug, gate) {
       gate.el.remove();
     } catch (e) {}
 
-    window._placedGates = (window._placedGates || []).filter(
-      (g) => g !== gate
-    );
+    window._placedGates = (window._placedGates || []).filter((g) => g !== gate);
     state.currentBug = null;
     updateHUD();
 
@@ -965,7 +831,6 @@ function handleGateHit(bug, gate) {
 }
 
 function createSpark(x, y, color) {
-  if (!gameArea) return;
   const s = document.createElement('div');
   s.className = 'spark';
   s.style.left = x + 'px';
@@ -997,7 +862,6 @@ function hitProd(bug) {
   updateProdDamageVisual();
   beep(120, 0.12);
 
-  if (!gameArea || !prodCol) return;
   const areaRect = gameArea.getBoundingClientRect();
   const prodRect = prodCol.getBoundingClientRect();
   const sx = prodRect.left - areaRect.left;
@@ -1051,7 +915,7 @@ function gameLoop(ts) {
     if (now >= bug.pausedUntil) {
       const dtSec = dt / 1000;
       bug.x += bug.vx * dtSec;
-      if (bug.el) bug.el.style.left = bug.x + 'px';
+      bug.el.style.left = bug.x + 'px';
 
       let gates = window._placedGates || [];
       for (const gate of gates) {
@@ -1067,7 +931,7 @@ function gameLoop(ts) {
         }
       }
 
-      if (bug.active && gameArea && prodCol) {
+      if (bug.active) {
         const areaRect = gameArea.getBoundingClientRect();
         const prodRect = prodCol.getBoundingClientRect();
         const prodThreshold =
@@ -1089,7 +953,7 @@ function resetSession() {
   clearInterval(timerInterval);
   timerInterval = null;
 
-  if (endOverlay) endOverlay.style.display = 'none';
+  endOverlay.style.display = 'none';
 
   if (state.currentBug && state.currentBug.el) {
     try {
@@ -1111,16 +975,14 @@ function resetSession() {
   state.remaining = CONFIG.totalBugs;
   state.spawnedCount = 0;
 
-  const timerEl = document.getElementById('timer');
-  if (timerEl) timerEl.textContent = GAME_DURATION;
-  if (banner) banner.textContent = 'Ready';
+  document.getElementById('timer').textContent = GAME_DURATION;
+  banner.textContent = 'Ready';
   updateHealth();
   updateProdDamageVisual();
   updateHUD();
 }
 
 function showEndOverlay(reason, rank) {
-  if (!endOverlay || !endTitleEl || !endScoreEl || !endRankEl) return;
   let title = 'Game Over';
   let className = '';
 
@@ -1130,15 +992,12 @@ function showEndOverlay(reason, rank) {
   } else if (reason && reason.toLowerCase().includes('meltdown')) {
     title = '🔥 Production Meltdown!';
     className = 'meltdown';
-  } else if (reason && reason.toLowerCase().includes('aborted')) {
-    title = '⛔ Game Aborted';
-    className = 'aborted';
   } else {
     title = reason || 'Game Over';
   }
 
   endTitleEl.textContent = title;
-  endTitleEl.classList.remove('timeup', 'meltdown', 'aborted');
+  endTitleEl.classList.remove('timeup', 'meltdown');
   if (className) endTitleEl.classList.add(className);
 
   endScoreEl.textContent = `Score: ${state.score}`;
@@ -1160,47 +1019,39 @@ function showEndOverlay(reason, rank) {
   endOverlay.style.display = 'flex';
 }
 
-/* endGame: saves to Firebase + localStorage */
+/* endGame: now also saves to localStorage */
 async function endGame(reason) {
   state.running = false;
   clearInterval(timerInterval);
   timerInterval = null;
-  if (banner) banner.textContent = reason || 'Game over';
+  banner.textContent = reason || 'Game over';
 
   const name = state.player;
   const stamp = Date.now();
 
-  let firebaseId = null;
-  let rank = null;
+  // always record locally when there is a name
+  addLocalScore(name, state.score, stamp);
 
-  // Try Firebase first (if we have a name)
-  if (name) {
-    try {
-      firebaseId = await saveScoreToFirebase(name, state.score, stamp);
-      const rows = await fetchLeaderboardFromFirebase();
-
-      // find rank by id if possible, else fall back to name+score+time
-      if (firebaseId) {
-        const idxById = rows.findIndex((r) => r.id === firebaseId);
-        if (idxById >= 0) rank = idxById + 1;
-      }
-      if (rank == null) {
-        const idx = rows.findIndex(
-          (r) =>
-            r.name === name &&
-            r.score === state.score &&
-            r.timestamp === stamp
-        );
-        rank = idx >= 0 ? idx + 1 : null;
-      }
-    } catch (e) {
-      console.error('Error updating Firebase leaderboard', e);
-    }
+  if (!name) {
+    showEndOverlay(reason, null);
+    return;
   }
 
-  // Always store locally (with firebaseId if we got one)
-  if (name) {
-    addLocalScore(name, state.score, stamp, firebaseId);
+  let rank = null;
+
+  try {
+    await saveScoreToFirebase(name, state.score, stamp);
+    const rows = await fetchLeaderboardFromFirebase();
+
+    const idx = rows.findIndex(
+      (r) =>
+        r.name === name &&
+        r.score === state.score &&
+        r.timestamp === stamp
+    );
+    rank = idx >= 0 ? idx + 1 : null;
+  } catch (e) {
+    console.error('Error updating Firebase leaderboard', e);
   }
 
   showEndOverlay(reason, rank);
@@ -1213,12 +1064,11 @@ function beginGame() {
   lastTime = null;
 
   let timeLeft = GAME_DURATION;
-  const timerEl = document.getElementById('timer');
-  if (timerEl) timerEl.textContent = timeLeft;
+  document.getElementById('timer').textContent = timeLeft;
   timerInterval = setInterval(() => {
     timeLeft--;
     if (timeLeft < 0) timeLeft = 0;
-    if (timerEl) timerEl.textContent = timeLeft;
+    document.getElementById('timer').textContent = timeLeft;
     if (timeLeft <= 0) {
       clearInterval(timerInterval);
       timerInterval = null;
@@ -1229,10 +1079,58 @@ function beginGame() {
   }, 1000);
 
   spawnNextBug();
-  if (btnAbort) btnAbort.disabled = false;
+  btnAbort.disabled = false;
 }
 
-/* Abort button behaviour: no save to leaderboard */
+/* buttons in end overlay */
+endBtnPlay.addEventListener('click', () => {
+  if (state.player) {
+    beginGame();
+  } else {
+    startOverlay.style.display = 'flex';
+  }
+});
+
+endBtnLB.addEventListener('click', () => {
+  endOverlay.style.display = 'none';
+  btnLB.click();
+});
+
+endBtnNew.addEventListener('click', () => {
+  endOverlay.style.display = 'none';
+  resetSession();
+
+  state.player = null;
+  playerNameEl.textContent = '—';
+
+  playerNameInput.value = '';
+  startOverlayBtn.disabled = true;
+
+  startOverlay.style.display = 'flex';
+  playerNameInput.focus();
+});
+
+/* start overlay button */
+startOverlayBtn.addEventListener('click', () => {
+  const name = playerNameInput.value.trim();
+  if (!name) return;
+  state.player = name;
+  playerNameEl.textContent = state.player;
+  startOverlay.style.display = 'none';
+  beginGame();
+});
+
+/* header Start button */
+btnStart.addEventListener('click', () => {
+  if (!state.player) {
+    startOverlay.style.display = 'flex';
+    playerNameInput.focus();
+  } else if (!state.running) {
+    beginGame();
+  }
+});
+
+/* Abort button */
 function abortGame() {
   if (!state.running) return;
 
@@ -1240,16 +1138,14 @@ function abortGame() {
   clearInterval(timerInterval);
   timerInterval = null;
 
-  if (btnAbort) btnAbort.disabled = true;
+  endTitleEl.textContent = '⛔ Game Aborted';
+  endTitleEl.className = 'end-title aborted';
 
-  // Do not save scores; just show overlay
-  showEndOverlay('Game Aborted', null);
+  endScoreEl.textContent = 'Score: ' + state.score;
+  endRankEl.textContent = '(Not saved to leaderboard)';
+  endOverlay.style.display = 'flex';
+
+  btnAbort.disabled = true;
 }
 
-/* ---------- Initial small leaderboard render ---------- */
-renderLB();
-
-/* ---------- Initial visuals ---------- */
-updateHealth();
-updateProdDamageVisual();
-updateHUD();
+btnAbort.addEventListener('click', abortGame);
