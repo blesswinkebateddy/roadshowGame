@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Shift-Left CI/CD – Side-by-side Comparison</title>
+<title>Test Early. Ship Stable.</title>
 <style>
   :root{
     --bg-blue:#0284c7;
@@ -15,9 +15,12 @@
   }
   *{box-sizing:border-box;}
 
-  body{
+  html,body{
     margin:0;
-    min-height:100vh;
+    height:100%;
+  }
+
+  body{
     display:flex;
     align-items:center;
     justify-content:center;
@@ -27,11 +30,14 @@
       radial-gradient(circle at 0% 0%,var(--bg-blue) 0,#020617 45%),
       radial-gradient(circle at 100% 100%,var(--bg-green) 0,#020617 45%),
       #020617;
+    overflow:hidden; /* no scroll for roadshow screen */
   }
 
   .shell{
-    width:min(1280px,100%);
-    padding:24px;
+    width:100%;
+    max-width:1400px;
+    height:100%;
+    padding:18px 26px;
   }
 
   .card{
@@ -42,69 +48,99 @@
       rgba(15,23,42,.97);
     border:1px solid rgba(148,163,184,.6);
     box-shadow:0 26px 70px rgba(15,23,42,.95);
-    padding:18px 22px 20px;
+    padding:18px 24px 20px;
+    height:100%;
     overflow:hidden;
+    display:flex;
+    flex-direction:column;
   }
 
-  /* hide old story / banner / speech */
+  /* hide old story / banner / speech if any */
   .step-banner,
   .story-strip,
   .dev-speech{
-    display:none;
+    display:none!important;
   }
 
   .card-header{
     display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:12px;
-    margin:6px 0 10px;
-  }
-  .title{
-    font-size:18px;
-    font-weight:650;
-    letter-spacing:.04em;
-  }
-  .subtitle{
-    font-size:12px;
-    color:var(--muted);
-    margin-top:2px;
+    flex-direction:column;
+    gap:4px;
+    margin-bottom:10px;
   }
 
+  .hero-title{
+    font-size:30px;
+    font-weight:750;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+
+  .hero-subtitle{
+    font-size:16px;
+    font-weight:600;
+    color:#e5e7eb;
+  }
+
+  .hero-caption{
+    font-size:13px;
+    color:var(--muted);
+  }
+
+  /* MAIN LAYOUT: Dev on the left, pipelines + TEST on the right */
   .layout{
     display:flex;
-    flex-direction:column;
+    flex-direction:row;
     gap:16px;
+    flex:1;
+    min-height:0;
+  }
+
+  .layout-left{
+    flex:0 0 280px;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+  }
+
+  .layout-right{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    min-height:0;
   }
 
   /* Dev panel */
   .dev-panel{
-    border-radius:22px;
+    border-radius:20px;
     border:1px solid rgba(148,163,184,.55);
     background:
       radial-gradient(circle at top left,rgba(56,189,248,.18),transparent 65%),
       radial-gradient(circle at bottom right,rgba(52,211,153,.16),transparent 65%),
       #020617;
-    padding:14px 16px 12px;
+    padding:10px 14px 9px;
     display:flex;
     flex-direction:column;
-    gap:10px;
+    gap:12px;
+    height:100%;
   }
 
-  .dev-header{
+  .dev-left{
     display:flex;
     align-items:center;
     gap:12px;
   }
+
   .dev-avatar{
-    width:58px;
-    height:58px;
+    width:60px;
+    height:60px;
     border-radius:20px;
     background:radial-gradient(circle at 30% 20%,#facc15,#fb7185);
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:30px;
+    font-size:32px;
     box-shadow:0 0 20px rgba(248,250,252,.7);
   }
   .dev-meta{
@@ -125,16 +161,16 @@
   }
 
   .pr-card{
-    margin-top:4px;
     border-radius:16px;
     border:1px solid rgba(148,163,184,.6);
     background:
       radial-gradient(circle at top left,rgba(56,189,248,.18),transparent 60%),
       rgba(15,23,42,.98);
-    padding:9px 12px 9px;
+    padding:7px 11px;
     display:flex;
     flex-direction:column;
-    gap:6px;
+    gap:4px;
+    min-width:0;
   }
   .pr-top{
     display:flex;
@@ -143,7 +179,7 @@
     gap:10px;
   }
   .pr-title{font-size:13px;font-weight:600;}
-  .pr-sub{font-size:11px;color:var(--muted);}
+  .pr-sub{font-size:11px;color:var(--muted);min-height:14px;}
   .pr-pill{
     font-size:11px;
     padding:4px 9px;
@@ -164,6 +200,7 @@
     display:flex;
     align-items:center;
     gap:4px;
+    flex-wrap:wrap;
   }
   .pr-branches span.branch{
     padding:2px 7px;
@@ -173,28 +210,31 @@
   }
   .pr-branches span.arrow{opacity:.7;}
 
-  /* Side-by-side pipelines */
-  .compare-grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
-    gap:16px;
+  /* Pipelines stacked vertically */
+  .pipelines-area{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    flex:1;
+    min-height:0;
   }
 
   .pipe-panel{
-    border-radius:22px;
+    border-radius:20px;
     border:1px solid rgba(148,163,184,.55);
     background:radial-gradient(circle at top,rgba(15,23,42,1),#020617);
-    padding:12px 14px 12px;
+    padding:10px 14px;
     display:flex;
     flex-direction:column;
+    gap:8px;
+    min-height:0;
   }
   .pipe-header{
     display:flex;
     justify-content:space-between;
     align-items:center;
-    margin-bottom:8px;
   }
-  .pipe-title{font-size:14px;font-weight:600;}
+  .pipe-title{font-size:16px;font-weight:650;}
   .pipe-mode{
     font-size:11px;
     padding:4px 9px;
@@ -210,57 +250,59 @@
   }
 
   .pipe-status{
-    font-size:11px;
+    font-size:12px;
     color:var(--muted);
-    min-height:15px;
-    margin-bottom:8px;
+    min-height:16px;
   }
 
+  /* HORIZONTAL PIPELINES */
   .pipe-list{
-    position:relative;
     list-style:none;
     padding:0;
-    margin:0;
-  }
-  .pipe-list::before{
-    content:"";
-    position:absolute;
-    left:22px;
-    top:0;
-    bottom:0;
-    width:2px;
-    background:linear-gradient(to bottom,#1f2937,#020617);
+    margin:4px 0 2px;
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    flex-wrap:wrap;
   }
 
   .pipe-step{
     position:relative;
     display:flex;
-    align-items:flex-start;
-    gap:12px;
-    padding:8px 4px 8px 38px;
-    font-size:12px;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    gap:4px;
+    padding:8px 10px;
+    border-radius:14px;
+    min-width:110px;
+    max-width:150px;
+    text-align:center;
+    background:rgba(15,23,42,.95);
+    border:1px solid rgba(55,65,81,.9);
+    font-size:13px;
     color:var(--muted);
   }
 
   .pipe-icon{
-    position:absolute;
-    left:12px;
-    top:50%;
-    transform:translateY(-50%);
-    width:22px;
-    height:22px;
+    width:24px;
+    height:24px;
     border-radius:999px;
     border:2px solid #4b5563;
     background:#020617;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:11px;
+    font-size:12px;
     color:#9ca3af;
   }
 
-  .pipe-label{font-size:12px;}
+  .pipe-label{font-size:13px;}
 
+  .pipe-step--active{
+    box-shadow:0 0 14px rgba(56,189,248,.7);
+    border-color:var(--active);
+  }
   .pipe-step--active .pipe-icon{
     border-color:var(--active);
     color:var(--active);
@@ -268,35 +310,61 @@
   }
   .pipe-step--active .pipe-label{color:#e5e7eb;}
 
+  .pipe-step--ok{
+    border-color:var(--ok);
+    background:#022c22;
+    box-shadow:0 0 10px rgba(34,197,94,.7);
+  }
   .pipe-step--ok .pipe-icon{
     border-color:var(--ok);
     background:#022c22;
     color:#bbf7d0;
-    box-shadow:0 0 10px rgba(34,197,94,.9);
   }
   .pipe-step--ok .pipe-label{color:#bbf7d0;}
 
+  .pipe-step--fail{
+    border-color:var(--fail);
+    background:#451a03;
+    box-shadow:0 0 10px rgba(249,115,22,.8);
+  }
   .pipe-step--fail .pipe-icon{
     border-color:var(--fail);
     background:#451a03;
     color:#fed7aa;
-    box-shadow:0 0 10px rgba(249,115,22,.9);
   }
   .pipe-step--fail .pipe-label{color:#fed7aa;}
 
   .pipe-step--skipped{
-    opacity:.6;
+    opacity:.55;
   }
   .pipe-step--skipped .pipe-icon{
     border-style:dashed;
     border-color:#6b7280;
   }
 
-  /* TEST env box */
+  /* TEST ENV AS SEPARATE PANEL */
+  .test-panel{
+    border-radius:18px;
+    border:1px solid rgba(148,163,184,.55);
+    background:radial-gradient(circle at top,rgba(15,23,42,.98),#020617);
+    padding:8px 12px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+
+  .test-header{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:#e5e7eb;
+    opacity:.9;
+  }
+
+  /* TEST env box (logic stays the same) */
   .env-box{
-    margin-top:10px;
     border-radius:14px;
-    padding:7px 9px;
+    padding:6px 9px;
     display:flex;
     justify-content:space-between;
     align-items:center;
@@ -347,22 +415,29 @@
 
   /* Pros / Cons */
   .insights-panel{
-    margin-top:10px;
+    display:flex;
+    gap:16px;
+    margin-top:4px;
+    font-size:12px;
+  }
+  .insights-col{
+    flex:1;
     border-radius:12px;
     padding:6px 8px;
     border:1px dashed rgba(148,163,184,.5);
     background:rgba(15,23,42,.9);
-    font-size:11px;
   }
   .insights-title{
     font-size:11px;
     font-weight:600;
     color:#e5e7eb;
     margin-bottom:4px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
   }
   .insights-list{
     list-style:none;
-    margin:0 0 4px 0;
+    margin:0;
     padding-left:0;
   }
   .insight-item{
@@ -379,6 +454,13 @@
 
   @media(max-width:900px){
     .card{border-radius:0;}
+    .layout{
+      flex-direction:column;
+    }
+    .layout-left{
+      flex:0 0 auto;
+    }
+    .pipe-list{flex-wrap:wrap;}
   }
 </style>
 </head>
@@ -386,89 +468,108 @@
 <div class="shell">
   <div class="card">
     <div class="card-header">
-      <div>
-        <div class="title">Shifting quality left in our CI/CD pipeline</div>
-        <div class="subtitle">Same PR, same dev — AS-IS vs TO-BE running side by side.</div>
-      </div>
+      <div class="hero-title">Test Early. Ship Stable.</div>
+      <div class="hero-subtitle">AS-IS vs TO-BE CI/CD pipelines, using the exact same PR.</div>
+      <div class="hero-caption">Watch how adding contract & integration checks in CI protects TEST and shortens the feedback loop.</div>
     </div>
 
     <div class="layout">
-      <!-- Dev + PR -->
-      <div class="dev-panel">
-        <div class="dev-header">
-          <div class="dev-avatar">👩‍💻</div>
-          <div class="dev-meta">
-            <div class="dev-name">Developer: Dev</div>
-            <div class="dev-branch">branch: <strong>feature/booking-contract</strong></div>
-            <div class="dev-repo">repo: amadeus / booking-api</div>
-          </div>
-        </div>
-
-        <div class="pr-card">
-          <div class="pr-top">
-            <div>
-              <div class="pr-title">PR #1289 – Align booking API contracts</div>
-              <div id="prSub" class="pr-sub">Created just now · comparison running side by side</div>
+      <!-- LEFT: Developer + PR (source of all builds / fixes) -->
+      <div class="layout-left">
+        <div class="dev-panel">
+          <div class="dev-left">
+            <div class="dev-avatar">👩‍💻</div>
+            <div class="dev-meta">
+              <div class="dev-name">Developer: Dev</div>
+              <div class="dev-branch">branch: <strong>feature/booking-contract</strong></div>
+              <div class="dev-repo">repo: amadeus / booking-api</div>
             </div>
-            <div id="prPill" class="pr-pill">Open · under comparison</div>
           </div>
-          <div class="pr-branches">
-            <span class="branch">feature/booking-contract</span>
-            <span class="arrow">⇢</span>
-            <span class="branch">master</span>
+
+          <div class="pr-card">
+            <div class="pr-top">
+              <div>
+                <div class="pr-title">PR #1289 – Align booking API contracts</div>
+                <div id="prSub" class="pr-sub">Created just now · comparison running side by side</div>
+              </div>
+              <div id="prPill" class="pr-pill">Open · under comparison</div>
+            </div>
+            <div class="pr-branches">
+              <span class="branch">feature/booking-contract</span>
+              <span class="arrow">⇢</span>
+              <span class="branch">master</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Side-by-side pipelines -->
-      <div class="compare-grid">
-        <!-- AS-IS -->
-        <div class="pipe-panel">
-          <div class="pipe-header">
-            <div class="pipe-title">AS-IS pipeline</div>
-            <div class="pipe-mode">AS-IS (today)</div>
-          </div>
-          <div id="pipeStatusAsIs" class="pipe-status"></div>
-          <ul id="pipeListAsIs" class="pipe-list"></ul>
-
-          <div id="envBoxAsIs" class="env-box">
-            <div class="env-pill">
-              <span class="env-dot"></span>
-              <span>TEST env</span>
+      <!-- RIGHT: Pipelines + TEST env impact -->
+      <div class="layout-right">
+        <div class="pipelines-area">
+          <!-- AS-IS -->
+          <div class="pipe-panel">
+            <div class="pipe-header">
+              <div class="pipe-title">AS-IS pipeline</div>
+              <div class="pipe-mode">AS-IS (today)</div>
             </div>
-            <div id="envStatusAsIs" class="env-status">Idle – waiting for build…</div>
-          </div>
+            <div id="pipeStatusAsIs" class="pipe-status"></div>
+            <ul id="pipeListAsIs" class="pipe-list"></ul>
 
-          <div class="insights-panel">
-            <div class="insights-title">Pros</div>
-            <ul id="prosAsIs" class="insights-list"></ul>
-            <div class="insights-title" style="margin-top:4px;">Cons</div>
-            <ul id="consAsIs" class="insights-list"></ul>
-          </div>
-        </div>
-
-        <!-- TO-BE -->
-        <div class="pipe-panel">
-          <div class="pipe-header">
-            <div class="pipe-title">TO-BE pipeline</div>
-            <div class="pipe-mode tobe">TO-BE (shift-left)</div>
-          </div>
-          <div id="pipeStatusToBe" class="pipe-status"></div>
-          <ul id="pipeListToBe" class="pipe-list"></ul>
-
-          <div id="envBoxToBe" class="env-box">
-            <div class="env-pill">
-              <span class="env-dot"></span>
-              <span>TEST env</span>
+            <div class="insights-panel">
+              <div class="insights-col">
+                <div class="insights-title">Pros</div>
+                <ul id="prosAsIs" class="insights-list"></ul>
+              </div>
+              <div class="insights-col">
+                <div class="insights-title">Cons</div>
+                <ul id="consAsIs" class="insights-list"></ul>
+              </div>
             </div>
-            <div id="envStatusToBe" class="env-status">Idle – waiting for build…</div>
           </div>
 
-          <div class="insights-panel">
-            <div class="insights-title">Pros</div>
-            <ul id="prosToBe" class="insights-list"></ul>
-            <div class="insights-title" style="margin-top:4px;">Cons</div>
-            <ul id="consToBe" class="insights-list"></ul>
+          <!-- AS-IS TEST env as its own component -->
+          <div class="test-panel">
+            <div class="test-header">AS-IS – TEST environment impact</div>
+            <div id="envBoxAsIs" class="env-box">
+              <div class="env-pill">
+                <span class="env-dot"></span>
+                <span>TEST env</span>
+              </div>
+              <div id="envStatusAsIs" class="env-status">Idle – waiting for build…</div>
+            </div>
+          </div>
+
+          <!-- TO-BE -->
+          <div class="pipe-panel">
+            <div class="pipe-header">
+              <div class="pipe-title">TO-BE pipeline</div>
+              <div class="pipe-mode tobe">TO-BE (shift-left)</div>
+            </div>
+            <div id="pipeStatusToBe" class="pipe-status"></div>
+            <ul id="pipeListToBe" class="pipe-list"></ul>
+
+            <div class="insights-panel">
+              <div class="insights-col">
+                <div class="insights-title">Pros</div>
+                <ul id="prosToBe" class="insights-list"></ul>
+              </div>
+              <div class="insights-col">
+                <div class="insights-title">Cons</div>
+                <ul id="consToBe" class="insights-list"></ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- TO-BE TEST env as its own component -->
+          <div class="test-panel">
+            <div class="test-header">TO-BE – TEST environment impact</div>
+            <div id="envBoxToBe" class="env-box">
+              <div class="env-pill">
+                <span class="env-dot"></span>
+                <span>TEST env</span>
+              </div>
+              <div id="envStatusToBe" class="env-status">Idle – waiting for build…</div>
+            </div>
           </div>
         </div>
       </div>
@@ -581,13 +682,11 @@
       const icon = document.createElement("div");
       icon.className = "pipe-icon";
       icon.textContent = idx+1;
-      const lblWrap = document.createElement("div");
       const lbl = document.createElement("div");
       lbl.className = "pipe-label";
       lbl.textContent = label;
-      lblWrap.appendChild(lbl);
       li.appendChild(icon);
-      li.appendChild(lblWrap);
+      li.appendChild(lbl);
       ctx.pipeList.appendChild(li);
     });
   }
@@ -655,7 +754,6 @@
 
   async function runAsIs(token){
     const mode = "as-is";
-    const ctx  = pipelines[mode];
 
     resetPipeline(mode);
     buildSteps(mode);
@@ -724,7 +822,6 @@
 
   async function runToBe(token){
     const mode = "to-be";
-    const ctx  = pipelines[mode];
 
     resetPipeline(mode);
     buildSteps(mode);
@@ -796,7 +893,7 @@
     buildSteps("to-be");
 
     if(withIntro){
-      await delay(10); // nothing visual, just spacing
+      await delay(10);
       if(token !== storyToken) return;
     }
 
@@ -821,7 +918,7 @@
     }
   }
 
-  // start automatically
+  // start automatically and loop
   playComparison(true);
 })();
 </script>
